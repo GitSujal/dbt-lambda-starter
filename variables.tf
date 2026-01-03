@@ -27,8 +27,9 @@ variable "environment" {
 }
 
 variable "bucket_prefix" {
-  description = "The prefix for the S3 bucket name."
+  description = "The prefix for the S3 bucket name. Must be globally unique (4-36 characters)."
   type        = string
+  default     = "dbt-lambda"
 
   validation {
     condition     = length(var.bucket_prefix) > 3 && length(var.bucket_prefix) < 37
