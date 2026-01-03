@@ -311,6 +311,8 @@ resource "aws_s3_bucket_policy" "dbt_docs_policy" {
       }
     ]
   })
+
+  depends_on = [aws_s3_bucket_public_access_block.dbt_docs_access]
 }
 
 # Enable static website hosting
