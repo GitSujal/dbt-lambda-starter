@@ -1,7 +1,8 @@
 
 # Raw Bucket
 resource "aws_s3_bucket" "raw" {
-  bucket = lower("${var.bucket_prefix}-raw")
+  bucket              = lower("${var.bucket_prefix}-raw")
+  force_destroy       = true
 
   tags = merge(
     {
@@ -96,7 +97,8 @@ resource "aws_s3_bucket_intelligent_tiering_configuration" "raw_tiering" {
 
 # Processed Bucket
 resource "aws_s3_bucket" "processed" {
-  bucket = lower("${var.bucket_prefix}-processed")
+  bucket              = lower("${var.bucket_prefix}-processed")
+  force_destroy       = true
 
   tags = merge(
     {

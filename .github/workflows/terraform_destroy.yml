@@ -1,0 +1,44 @@
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: 'Type "DESTROY" to confirm stack deletion'
+        required: true
+        type: string
+
+jobs:
+  terraform_destroy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v6
+      - name: Install the project
+        run: uv sync --locked
+        # read the role from .arn file and save to an env variable
+      - name: Read role ARN
+        id: read_role_arn
+        run: |
+          ROLE_ARN=$(grep 'ROLE_ARN' .arn | cut -d '=' -f2)
+          echo "ROLE_ARN=$ROLE_ARN" >> $GITHUB_ENV
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5.1.0
+        with:
+            aws-region: ap-southeast-2
+            role-to-assume: ${{ env.ROLE_ARN }}
+            role-session-name: ${{ github.actor }}-session-${{ github.run_id }}
+
+      
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Destroy
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform destroy -auto-approve

@@ -51,46 +51,48 @@ This project provides a streamlined, serverless data transformation pipeline whe
 
 ## Prerequisites
 
-- **AWS Account** with appropriate permissions
+- **AWS Account** with AdministratorAccess permissions
+- **AWS CLI v2** configured with credentials
 - **Terraform** >= 1.0
-- **AWS CLI** configured with your credentials
-- **Python 3.13+** (for local dbt project development)
-- **Git** (to clone this repository)
+- **Python 3.13+** (for local development)
+- **Git** with a GitHub remote
 
 ## Quick Start
 
-### 1. Clone and Setup
+This project uses **Bootstrap** for one-time AWS account setup, then **Terraform** for infrastructure management, and **GitHub Actions** for CI/CD automation.
+
+### Step 1: Clone Repository and Install Dependencies
 
 ```bash
 git clone <repository-url>
 cd dbt-lambda-starter
-
-# Install dependencies (if using Python virtual env)
 uv sync
 ```
 
-Replace `<repository-url>` with the URL of your cloned repository.
+### Step 2: Bootstrap AWS Account (One-Time Only)
 
-### 2. Configure AWS Profile
+The bootstrap script sets up GitHub OIDC authentication and Terraform state backend:
 
 ```bash
-# Set up your AWS credentials (if not already configured)
-aws configure --profile default
-
-# then login to your profile
-aws sso login --profile your-profile-name
-
-# Or use an existing profile
-export AWS_PROFILE=your-profile-name
+# Set your desired AWS region (optional, defaults to configured region)
+./bootstrap_account.sh ap-southeast-2
 ```
 
-### 3. Update Configuration
+**What bootstrap does:**
+- ✓ Creates GitHub OIDC provider for secure CI/CD authentication
+- ✓ Creates IAM role for GitHub Actions deployment
+- ✓ Creates S3 bucket for Terraform state with encryption and versioning
+- ✓ Updates `terraform.tf` with state backend configuration
+- ✓ Updates `terraform.tfvars` with your AWS region
+- ✓ Outputs `.arn` file containing the GitHub Actions role ARN
 
-Edit `terraform.tfvars` for your environment:
+### Step 3: Configure Your Project
+
+Edit `terraform.tfvars` to customize your deployment:
 
 ```hcl
-aws_region    = "us-east-1"              # Your AWS region
-bucket_prefix = "my-company-dbt"         # Unique prefix for S3 buckets
+aws_region    = "ap-southeast-2"         # Your AWS region (auto-set by bootstrap)
+bucket_prefix = "my-company-dbt"         # Unique S3 bucket prefix
 environment   = "dev"
 
 extra_tags = {
@@ -100,29 +102,37 @@ extra_tags = {
 }
 ```
 
-### 4. Initialize and Deploy
+### Step 4: Deploy Infrastructure
+
+**Option A: Terraform CLI (Local Deployment)**
 
 ```bash
-# Initialize Terraform
+# Initialize Terraform (uses backend from bootstrap)
 terraform init
 
-# Review planned changes
+# Review changes
 terraform plan
 
-# Deploy infrastructure
+# Deploy
 terraform apply
-
-# Save the outputs for reference
-terraform output > outputs.json
 ```
 
-### 5. Upload Sample Data
+**Option B: GitHub Actions (Automated CI/CD)**
+
+Push to `main` branch and the `terraform_deploy` workflow automatically:
+- ✓ Runs `terraform plan`
+- ✓ Validates infrastructure
+- ✓ Runs `terraform apply -auto-approve`
+
+No manual steps needed after bootstrap!
+
+### Step 5: Upload Sample Data
 
 ```bash
-# Get your raw bucket name from outputs
+# Get raw bucket name from Terraform outputs
 RAW_BUCKET=$(terraform output -raw data_buckets | jq -r '.raw')
 
-# Create a sample CSV file
+# Create and upload sample data
 cat > sample.csv << EOF
 id,name,value
 1,product-a,100
@@ -130,29 +140,10 @@ id,name,value
 3,product-c,300
 EOF
 
-# Upload to raw bucket
 aws s3 cp sample.csv s3://$RAW_BUCKET/
 ```
 
-### 6. Prepare Your dbt Project
-
-Edit `dbt/profiles.yml` if needed (preconfigured for Athena):
-
-```yaml
-dbt_lambda:
-  target: dev
-  outputs:
-    dev:
-      type: athena
-      method: iam
-      database: dev-dbt-lambda-dataplatform  # Matches Glue database
-      s3_staging_dir: s3://dev-dbt-lambda-athena-results-ACCOUNT_ID/
-      aws_region: us-east-1
-      schema: public
-      threads: 4
-```
-
-### 7. Invoke dbt Transformation
+### Step 6: Invoke dbt Transformation
 
 **Option A: AWS Console**
 1. Go to Lambda → Functions → `dev-dbt-runner`
@@ -270,7 +261,6 @@ dbt-lambda-starter/
 │   ├── dbt_runner.tf            # dbt_runner Lambda and IAM
 │   ├── storage.tf               # S3 buckets
 │   ├── glue.tf                  # Glue catalog database
-│   ├── state_backend.tf         # Terraform state configuration
 │   ├── variables.tf             # Module variables
 │   └── outputs.tf               # Module outputs
 │
@@ -280,7 +270,13 @@ dbt-lambda-starter/
 │   └── prod/
 │       └── terraform.tfvars
 │
+├── .github/workflows/           # GitHub Actions CI/CD pipelines
+│   ├── terraform_deploy.yml     # Auto-deploy on push to main
+│   └── terraform_destroy.yml    # Manual destroy workflow
+│
 ├── .gitignore                   # Git ignore rules
+├── bootstrap_account.sh         # One-time AWS account setup
+├── prep_dbt_layer.sh            # Build dbt Lambda layer
 ├── main.tf                      # Root Terraform configuration
 ├── variables.tf                 # Root variables
 ├── outputs.tf                   # Root outputs
@@ -292,53 +288,62 @@ dbt-lambda-starter/
 └── CLAUDE.md                    # AI assistant guidance
 ```
 
-## Deployment Guide
+## CI/CD Pipelines
 
-### Development Environment
+This project includes automated GitHub Actions workflows for deployment and destruction.
+
+### Automatic Deployment (terraform_deploy.yml)
+
+**Triggered:** Every push to `main` branch
+
+**What it does:**
+1. Checks out code
+2. Installs dependencies (uv sync)
+3. Authenticates to AWS using GitHub OIDC (`.arn` file)
+4. Runs `terraform init` (uses S3 backend from bootstrap)
+5. Runs `terraform plan` (validates changes)
+6. Runs `terraform apply -auto-approve` (deploys infrastructure)
+
+**No manual action needed** - just push to main and watch the workflow run!
+
+### Manual Destruction (terraform_destroy.yml)
+
+**Triggered:** Manual workflow dispatch in GitHub Actions
+
+**To destroy infrastructure:**
+1. Go to GitHub repository → Actions → terraform_destroy
+2. Click "Run workflow"
+3. Enter "DESTROY" as confirmation
+4. Confirm to delete all infrastructure
+
+**Warning:** This destroys all AWS resources created by Terraform. Use with caution!
+
+## Deployment Guide (Local Alternative)
+
+If you prefer local Terraform management instead of GitHub Actions:
+
+### Local Deployment
 
 ```bash
-# Deploy to dev with dev-specific tfvars
-terraform apply -var-file="envs/dev/terraform.tfvars"
+# Initialize (uses S3 backend from bootstrap)
+terraform init
+
+# Review changes
+terraform plan
+
+# Deploy infrastructure
+terraform apply
 ```
 
-### Production Environment
+### Local Destruction
 
 ```bash
-# Plan for prod
-terraform plan -var-file="envs/prod/terraform.tfvars"
+# Review what will be destroyed
+terraform plan -destroy
 
-# Apply for prod (review output carefully!)
-terraform apply -var-file="envs/prod/terraform.tfvars"
+# Destroy infrastructure
+terraform destroy
 ```
-
-### Remote State (Recommended)
-
-For team collaboration, enable remote state:
-
-```bash
-# The terraform.tf file includes a backend configuration
-# After the initial apply (which creates the state bucket), uncomment:
-# backend "s3" {
-#   bucket         = "dbt-lambda-terraform-state"
-#   key            = "terraform.tfstate"
-#   region         = "us-east-1"
-#   dynamodb_table = "terraform-locks"
-#   encrypt        = true
-# }
-
-# Then run:
-terraform init -migrate-state
-```
-### Running it for the first time to set up remote state
-
-Because we use s3 as our remote state and the s3 state bucket used for the state is also part of this terraform project, the first time you run `terraform init` you will need to do so without the backend configuration enabled. This will create the s3 state bucket and dynamodb table. After that you can uncomment the backend configuration and run `terraform init -migrate-state` to migrate your local state to the remote s3 backend.
-
-1. Comment the backend "s3" block in `terraform.tf`
-2. Run `terraform init` and `terraform apply -var-file="envs/dev/terraform.tfvars"`
-3. Uncomment the backend "s3" block in `terraform.tf`. Populate the bucket and region with the values created in step 2.
-4. Run `terraform init -migrate-state`
-
-You only need to do this once.
 
 ## dbt Commands
 

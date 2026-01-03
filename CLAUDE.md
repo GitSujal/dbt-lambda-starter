@@ -46,8 +46,10 @@ Terraform Modules:
 ├── storage.tf          # S3 buckets (raw, processed, athena_results)
 ├── glue.tf             # Glue database for Athena metadata
 ├── notifications.tf    # (Simplified - no orchestration)
-├── state_backend.tf    # Terraform state backend
 └── variables.tf        # Module variables
+
+Note: Terraform state backend (S3 bucket) is created by ./bootstrap_account.sh
+      using AWS CLI - not managed by Terraform infrastructure code
 ```
 
 ### S3 Bucket Design
@@ -117,32 +119,51 @@ Terraform Modules:
 
 ## Development Commands
 
-### Terraform Operations
+### One-Time Bootstrap (Required)
 
 ```bash
-# Initialize (required once)
-terraform init
+# Initialize AWS account, GitHub OIDC, and Terraform state backend
+./bootstrap_account.sh ap-southeast-2
 
-# Validate configuration
+# Initialize Terraform with S3 backend
+terraform init
+```
+
+### Terraform Operations (Local)
+
+```bash
+# Validate Terraform configuration
 terraform validate
 
 # Format code
 terraform fmt -recursive
 
-# Plan changes (dev)
-terraform plan -var-file="envs/dev/terraform.tfvars"
+# Plan changes
+terraform plan
 
-# Apply changes (dev)
-terraform apply -var-file="envs/dev/terraform.tfvars"
-
-# Plan changes (prod)
-terraform plan -var-file="envs/prod/terraform.tfvars"
-
-# Apply to production
-terraform apply -var-file="envs/prod/terraform.tfvars"
+# Deploy infrastructure
+terraform apply
 
 # Destroy infrastructure (careful!)
-terraform destroy -var-file="envs/dev/terraform.tfvars"
+terraform destroy
+```
+
+### Automated Deployments (GitHub Actions)
+
+**Automatic Deploy on Push:**
+```bash
+# Push to main branch - CI/CD pipeline automatically:
+git add .
+git commit -m "Update infrastructure"
+git push origin main
+# → terraform plan runs
+# → terraform apply runs automatically
+```
+
+**Manual Destroy (GitHub Actions):**
+```
+Go to GitHub → Actions → terraform_destroy
+Click "Run workflow" → Enter "DESTROY" confirmation
 ```
 
 ### Lambda Invocation
@@ -206,10 +227,16 @@ dbt-lambda-starter/
 │   ├── storage.tf                # S3 bucket configurations
 │   ├── glue.tf                   # Glue database + Athena bucket
 │   ├── notifications.tf          # Simplified (comments only)
-│   ├── state_backend.tf          # Terraform state S3 backend
 │   ├── variables.tf              # Module variables
 │   ├── outputs.tf                # Module outputs
 │   └── .gitkeep                  # Ensures directory tracked
+│
+│   Note: State backend bucket is created by bootstrap_account.sh, not Terraform
+│
+├── .github/                      # GitHub Actions configuration
+│   └── workflows/                # CI/CD pipelines
+│       ├── terraform_deploy.yml  # Auto-deploy on push to main
+│       └── terraform_destroy.yml # Manual destroy workflow
 │
 ├── envs/                         # Environment-specific configurations
 │   ├── dev/
@@ -219,17 +246,19 @@ dbt-lambda-starter/
 │
 ├── .gitignore                    # Git ignore rules
 ├── .python-version               # Python version (for pyenv)
+├── bootstrap_account.sh          # One-time AWS account initialization
+├── prep_dbt_layer.sh             # Build dbt Lambda layer (arm64)
 ├── main.tf                       # Root Terraform configuration
 ├── main.py                       # Python entry point (example)
 ├── outputs.tf                    # Root-level outputs
 ├── provider.tf                   # AWS provider configuration
-├── terraform.tf                  # Backend configuration
-├── terraform.tfvars              # Default variable values
+├── terraform.tf                  # Backend configuration (auto-updated by bootstrap)
+├── terraform.tfvars              # Default variable values (auto-updated by bootstrap)
 ├── variables.tf                  # Root-level variables
 ├── pyproject.toml                # Python project configuration
 ├── uv.lock                       # UV dependency lock file
 ├── README.md                     # User documentation
-├── CLAUDE.md                     # This file
+├── CLAUDE.md                     # This file (AI assistant guidance)
 └── LICENSE                       # MIT License
 ```
 
@@ -400,29 +429,261 @@ resource "aws_cloudwatch_event_target" "invoke_dbt" {
 - **Cost Tracking**: Tag resources for cost allocation
 - **Documentation**: Keep README and dbt documentation updated
 
+## Quick Start
+
+Quick reference for getting started with dbt-on-Lambda:
+
+```bash
+# 1. Clone and install dependencies
+git clone <repository-url>
+cd dbt-lambda-starter
+uv sync
+
+# 2. Bootstrap AWS account (one-time)
+./bootstrap_account.sh ap-southeast-2
+
+# 3. Update configuration
+# Edit terraform.tfvars with your bucket_prefix and other settings
+
+# 4. Deploy infrastructure (choose one approach):
+
+# Option A: GitHub Actions (recommended)
+git push origin main
+# → Automatic terraform plan and apply
+
+# Option B: Local Terraform
+terraform init
+terraform plan
+terraform apply
+
+# 5. Upload sample data to raw bucket
+RAW_BUCKET=$(terraform output -raw data_buckets | jq -r '.raw')
+aws s3 cp sample.csv s3://$RAW_BUCKET/
+
+# 6. Test the Lambda function
+aws lambda invoke \
+  --function-name dev-dbt-runner \
+  --payload '{"command": ["build"], "cli_args": []}' \
+  response.json
+
+# 7. Check execution logs
+aws logs tail /aws/lambda/dev-dbt-runner --follow
+```
+
+## GitHub Actions CI/CD Workflows
+
+### Automatic Deployment (terraform_deploy.yml)
+
+This workflow runs automatically on every push to the `main` branch.
+
+**Workflow Steps:**
+1. Checkout code from repository
+2. Install uv and Python dependencies
+3. Read `.arn` file (GitHub Actions role ARN)
+4. Assume AWS role via OIDC (no credentials stored in repository)
+5. Run `terraform init` (uses S3 backend from bootstrap)
+6. Run `terraform plan` (validates changes)
+7. Run `terraform apply -auto-approve` (deploys infrastructure)
+
+**Usage:**
+```bash
+# Make infrastructure changes
+git add .
+git commit -m "Update Lambda timeout"
+git push origin main
+# → Workflow automatically runs and deploys
+```
+
+### Manual Destruction (terraform_destroy.yml)
+
+This workflow destroys all infrastructure and must be manually triggered.
+
+**To Destroy:**
+1. Go to GitHub repository → **Actions** tab
+2. Select **terraform_destroy** workflow
+3. Click **Run workflow**
+4. Enter **"DESTROY"** as confirmation
+5. Wait for workflow to complete
+
+**Why manual?** Prevents accidental infrastructure deletion.
+
+### Security Notes
+
+- **No AWS credentials in repository**: Uses GitHub OIDC federation
+- **Role-based access**: Limited permissions via IAM role
+- **Audit trail**: All deployments logged in GitHub Actions and AWS CloudTrail
+- **State locking**: S3 backend prevents concurrent deployments
+
 ## Important Notes
 
-- **Do not commit**: `*.tfstate`, `*.tfstate.backup`, `.terraform/` (in .gitignore)
-- **dbt Layer**: Pre-built ZIP with dbt, dbt-athena, and dependencies must exist
-- **Python Runtime**: Lambda uses Python 3.13 (update if changing dbt version requirements)
-- **Region Default**: ap-southeast-2 is default; change in variables.tf or terraform.tfvars
-- **No API Ingestion**: This starter focuses on transformation only; users provide their own data ingestion
-- **Athena Results**: Automatically cleaned up after 30 days; don't rely on old results
+- **Do not commit**: `*.tfstate`, `.terraform/` (in .gitignore)
+- **Bootstrap**: Run `./bootstrap_account.sh` once to set up AWS account infrastructure
+- **dbt Layer**: Auto-built by `prep_dbt_layer.sh` with arm64-compatible dependencies
+- **Python Runtime**: Lambda uses Python 3.13 with arm64 (Graviton) architecture
+- **Default Region**: ap-southeast-2; specify different region as argument to bootstrap script
+- **No API Ingestion**: Starter focuses on transformation; users implement data ingestion separately
+- **Athena Results**: Auto-cleaned after 30 days; don't depend on old query results
+- **GitHub OIDC**: Bootstrap creates federated identity for CI/CD
+- **`.arn` file**: Contains GitHub Actions role ARN; must be committed to repository
+- **`.state-bucket` file**: Contains Terraform state bucket name; git-ignored
+
+## Bootstrap and Initial Setup
+
+### Account Bootstrap (One-time)
+
+Bootstrap your AWS account to set up GitHub Actions integration and Terraform state backend. This creates all necessary resources using AWS CLI and auto-configures Terraform:
+
+```bash
+# From project root
+./bootstrap_account.sh [AWS_REGION]
+
+# Example:
+./bootstrap_account.sh ap-southeast-2
+```
+
+**Bootstrap does the following:**
+
+1. ✓ Verify AWS CLI v2 and credentials
+2. ✓ Determine AWS region (from argument or existing AWS config)
+3. ✓ Create GitHub OIDC provider (federated identity)
+4. ✓ Create IAM role for GitHub Actions with admin permissions
+5. ✓ Create S3 bucket for Terraform state with:
+   - Versioning enabled for history/rollback
+   - AES256 encryption for security
+   - Public access blocked
+   - HTTPS-only policy enforcement
+6. ✓ **Automatically update configuration files:**
+   - `terraform.tf`: Backend bucket name & region
+   - `terraform.tfvars`: AWS region for deployments
+7. ✓ Save configuration to output files
+
+**Output files created:**
+- `.arn`: GitHub Actions role ARN for workflow configuration
+- `.state-bucket`: S3 bucket name for Terraform state
+
+**Configuration files auto-updated:**
+- `terraform.tf`: Backend block with bucket and region
+- `terraform.tfvars`: AWS region for all deployments
+
+### Enable Terraform Remote State
+
+After bootstrap completes, enable remote state management:
+
+```bash
+# Migrate from local state to S3
+terraform init -migrate-state
+
+# Answer 'yes' when prompted to copy existing state
+```
+
+This command:
+- Initializes the S3 backend (bucket already exists from bootstrap)
+- Migrates any existing local state to S3
+- Creates `.terraform/` configuration directory
+
+### GitHub Actions CI/CD Integration
+
+The project includes pre-configured GitHub Actions workflows. Bootstrap automatically creates the OIDC role needed for authentication.
+
+**Pre-configured Workflows:**
+
+1. **terraform_deploy.yml** (Automatic on push to main)
+   - Triggered: Every push to `main` branch
+   - Steps:
+     - Authenticate via GitHub OIDC (uses `.arn` file)
+     - Install dependencies (uv sync)
+     - Terraform init/plan/apply
+   - No additional setup needed!
+
+2. **terraform_destroy.yml** (Manual dispatch)
+   - Triggered: Manual GitHub Actions workflow
+   - Steps:
+     - Authenticate via GitHub OIDC
+     - Runs `terraform destroy -auto-approve`
+     - Requires "DESTROY" confirmation input
+
+**The `.arn` file:**
+- Automatically created by bootstrap_account.sh
+- Contains the GitHub Actions role ARN
+- Used by workflows to authenticate with AWS
+- Must be committed to the repository
 
 ## Deployment Checklist
 
-- [ ] Update `aws_region` in `variables.tf` if not using ap-southeast-2
-- [ ] Generate unique `bucket_prefix` (3-36 chars, globally unique)
-- [ ] Review `envs/dev/terraform.tfvars` and `envs/prod/terraform.tfvars`
-- [ ] Run `terraform validate` to check syntax
-- [ ] Run `terraform plan` to review infrastructure changes
-- [ ] Run `terraform apply` to deploy
-- [ ] Verify S3 buckets created
+### Prerequisites
+- [ ] AWS CLI v2 installed and configured with AdministratorAccess
+- [ ] Git repository cloned with GitHub remote
+- [ ] Python 3.13 available (via pyenv, .python-version)
+- [ ] Terraform >= 1.0 installed
+
+### Bootstrap Phase (One-time)
+- [ ] Run: `./bootstrap_account.sh ap-southeast-2`
+  - ✓ Creates GitHub OIDC provider
+  - ✓ Creates IAM role for GitHub Actions
+  - ✓ Creates S3 bucket for Terraform state
+  - ✓ Auto-updates `terraform.tf` backend
+  - ✓ Auto-updates `terraform.tfvars` region
+  - ✓ Creates `.arn` file
+- [ ] Verify `.arn` file created: `cat .arn`
+- [ ] Verify `.state-bucket` file created
+
+### Terraform Initialization
+- [ ] Update `terraform.tfvars` with unique `bucket_prefix`
+- [ ] Run: `terraform init` (uses S3 backend from bootstrap)
+- [ ] Run: `terraform validate` to check configuration
+
+### Infrastructure Deployment (Choose One)
+
+**Option A: GitHub Actions (Recommended)**
+- [ ] Commit and push changes to main: `git push origin main`
+- [ ] Watch workflow run in GitHub Actions
+- [ ] Verify `terraform apply` succeeded in workflow logs
+
+**Option B: Local Terraform**
+- [ ] Run: `terraform plan` to review changes
+- [ ] Run: `terraform apply` to deploy
+- [ ] Verify output shows created resources
+
+### Post-Deployment Testing
+- [ ] Verify S3 buckets created: `aws s3 ls | grep dev-`
+- [ ] Verify Lambda function: `aws lambda get-function --function-name dev-dbt-runner`
 - [ ] Upload sample data to raw bucket
-- [ ] Test dbt_runner Lambda invocation
-- [ ] Check CloudWatch logs for execution details
+- [ ] Test Lambda: `aws lambda invoke --function-name dev-dbt-runner --payload '{"command": ["build"], "cli_args": []}' response.json`
+- [ ] Check logs: `aws logs tail /aws/lambda/dev-dbt-runner --follow`
+- [ ] Verify dbt models in processed bucket and Glue catalog
 
 ## Troubleshooting Guide
+
+### Bootstrap Issues
+
+**Error: "AWS CLI v2 is required"**
+- Install AWS CLI v2: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+- Verify installation: `aws --version`
+
+**Error: "AdministratorAccess policy is required"**
+- Bootstrap script checks for admin permissions to create IAM roles and OIDC provider
+- Ensure your AWS user/role has `AdministratorAccess` policy attached
+- Contact your AWS account administrator if you don't have these permissions
+
+**Error: "No git remote 'origin' found"**
+- Bootstrap needs to detect GitHub repository for OIDC setup
+- Ensure you're in a cloned GitHub repository with `origin` remote
+- Verify: `git remote -v` shows GitHub URL
+
+**Error: "S3 bucket creation failed"**
+- S3 bucket names must be globally unique
+- Check if bucket with that name already exists: `aws s3 ls | grep terraform-state`
+- If it exists from a previous bootstrap, script will reuse it
+
+**No output files created**
+- Check script completed with `echo $?` (should be 0 for success)
+- Verify `.arn` and `.state-bucket` files: `ls -la .arn .state-bucket`
+- If missing, rerun bootstrap
+
+**terraform.tf not updated with bucket name**
+- Check file permissions: `ls -la terraform.tf`
+- Verify sed syntax works on your system (macOS vs Linux have different sed)
+- Manually update bucket name in `terraform.tf` backend block if needed
 
 ### Terraform Issues
 
@@ -433,6 +694,10 @@ resource "aws_cloudwatch_event_target" "invoke_dbt" {
 **Error: "Profile not found"**
 - Ensure AWS credentials configured: `aws configure --profile default`
 - Or set `AWS_PROFILE=your-profile` environment variable
+
+**Error: "error reading S3 bucket: AccessDenied"**
+- If backend is enabled and access fails, check IAM permissions
+- Ensure the role has s3:GetObject and s3:PutObject on the state bucket
 
 ### Lambda Issues
 

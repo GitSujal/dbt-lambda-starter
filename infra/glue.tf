@@ -13,7 +13,8 @@ resource "aws_glue_catalog_database" "dbt_data_platform" {
 
 # Athena Query Results Bucket
 resource "aws_s3_bucket" "athena_results" {
-  bucket = lower("${var.bucket_prefix}-athena-results-${data.aws_caller_identity.current.account_id}")
+  bucket              = lower("${var.bucket_prefix}-athena-results-${data.aws_caller_identity.current.account_id}")
+  force_destroy       = true
 
   tags = merge(
     {
