@@ -29,7 +29,9 @@ jobs:
             role-to-assume: ${{ env.ROLE_ARN }}
             role-session-name: ${{ github.actor }}-session-${{ github.run_id }}
 
-      
+      - name: Prep DBT Layer
+        run: bash prep_dbt_layer.sh
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
 
