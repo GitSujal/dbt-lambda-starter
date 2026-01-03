@@ -1,0 +1,47 @@
+{
+  "recommendations": [
+    // dbt Development
+    "salantisCoder.codetabs",
+    "dbt-labs.dbt-power-user",
+    "dbt-labs.dbt-core",
+    "fishtown-analytics.dbt-power-user",
+
+    // SQL & Jinja
+    "bungcip.better-toml",
+    "wholroyd.jinja",
+
+    // Python Development
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.black-formatter",
+    "charliermarsh.ruff",
+
+    // Terraform & Infrastructure
+    "hashicorp.terraform",
+
+    // AWS Development
+    "amazonwebservices.aws-toolkit-vscode",
+
+    // YAML & JSON
+    "redhat.vscode-yaml",
+    "esbenp.prettier-vscode",
+
+    // Git & Version Control
+    "eamodio.gitlens",
+    "donjayamanne.githistory",
+
+    // Code Quality & Formatting
+    "gruntfuggly.todo-tree",
+    "ms-vscode.makefile-tools",
+
+    // Documentation
+    "markdown-all-in-one.markdown-all-in-one",
+    "markdownlint.markdownlint",
+
+    // Useful Utilities
+    "streetsidesoftware.code-spell-checker",
+    "ms-vscode.makefile-tools",
+    "tamasfe.even-better-toml",
+    "ms-vscode-remote.remote-containers"
+  ]
+}

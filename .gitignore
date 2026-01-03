@@ -1,0 +1,68 @@
+# Terraform state and cache
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform variables (contains sensitive data)
+# Use terraform.tfvars.example as template
+terraform.tfvars
+terraform.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+
+# dbt artifacts
+dbt_packages/
+dbt/target/
+dbt/logs/
+
+# dbt layer (pre-built Lambda layer - regenerate locally or via CI/CD)
+dbt_layer/
+dbt_layer.zip
+dbt_runner.zip
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.Python
+
+# Virtual environments
+.venv
+venv/
+env/
+
+# IDE and editor files (but include .vscode for team consistency)
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# IDE-specific configuration
+.claude/
+
+# OS files
+Thumbs.db
+
+# Local testing/development
+local_state/
+tmp/
+test_output/
+
+# Environment files
+.env
+.env.local
+
+# Zip files
+*.zip

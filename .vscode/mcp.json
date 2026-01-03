@@ -1,0 +1,28 @@
+{
+  "servers": {
+    "terraform-mcp": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "hashicorp/terraform-mcp-server:latest"
+      ]
+    },
+    "dbt-mcp-server": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "dbt-mcp"
+      ],
+      "env": {
+        "DBT_PROJECT_DIR": "${workspaceFolder}/dbt",
+        "DBT_PATH": "${workspaceFolder}/.venv/bin/dbt",
+        "DBT_PROFILES_DIR": "${workspaceFolder}/dbt"
+      }
+    }
+  },
+  "inputs": []
+}
+

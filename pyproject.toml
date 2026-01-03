@@ -1,0 +1,25 @@
+[project]
+name = "dbt-lambda-starter"
+version = "1.0.0"
+description = "A production-ready starter template for running dbt transformations on AWS Lambda with Athena."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "dbt-Lambda Contributors" }
+]
+keywords = ["dbt", "aws", "lambda", "athena", "data-transformation"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: System :: Distributed Computing",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "dbt-athena>=1.10.0",
+    "dbt-core>=1.11.2",
+]

@@ -1,0 +1,67 @@
+{
+  // Python Configuration
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.terminal.activateEnvInCurrentTerminal": true,
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+
+  // dbt Configuration
+  "dbt.enableNewLineagePanel": true,
+
+  // File Associations for dbt files with syntax highlighting
+  "files.associations": {
+    "**/dbt/**/*.yaml": "jinja-yaml",
+    "**/dbt/**/*.yml": "jinja-yaml",
+    "**/dbt/**/*.sql": "jinja-sql",
+    "**/dbt/**/docs/**/*.md": "jinja-md"
+  },
+
+  // Terminal Environment Variables - Linux/Mac
+  "terminal.integrated.env.linux": {
+    "DBT_PROJECT_DIR": "${workspaceFolder}/dbt",
+    "DBT_PROFILES_DIR": "${workspaceFolder}/dbt"
+  },
+  "terminal.integrated.env.osx": {
+    "DBT_PROJECT_DIR": "${workspaceFolder}/dbt",
+    "DBT_PROFILES_DIR": "${workspaceFolder}/dbt"
+  },
+
+  // Terminal Environment Variables - Windows
+  "terminal.integrated.env.windows": {
+    "DBT_PROJECT_DIR": "${workspaceFolder}/dbt",
+    "DBT_PROFILES_DIR": "${workspaceFolder}/dbt"
+  },
+
+  // Editor Configuration
+  "editor.insertSpaces": true,
+  "editor.tabSize": 2,
+
+  // Terraform Configuration
+  "[terraform]": {
+    "editor.defaultFormatter": "hashicorp.terraform",
+    "editor.formatOnSave": true
+  },
+
+  // YAML Configuration
+  "[yaml]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  // Search Configuration
+  "search.exclude": {
+    "**/.terraform": true,
+    "**/target": true,
+    "**/logs": true,
+    "**/dbt_packages": true
+  },
+
+  // Files to Exclude
+  "files.exclude": {
+    "**/.pytest_cache": true,
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  }
+}
