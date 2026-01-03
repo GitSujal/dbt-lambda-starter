@@ -49,9 +49,6 @@ env/
 *~
 .DS_Store
 
-# IDE-specific configuration
-.claude/
-
 # OS files
 Thumbs.db
 
