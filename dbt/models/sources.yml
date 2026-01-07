@@ -1,0 +1,5 @@
+sources:
+  - name: athlete_source
+    schema: athlete_source
+    tables:
+      - name: athletes

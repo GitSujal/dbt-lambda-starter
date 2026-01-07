@@ -3,19 +3,19 @@
 {{
     config(
       target_schema='snapshots',
-      unique_key='member_id',
+      unique_key=['athlete__id', 'athlete__users__id', 'series__id', 'athlete__eventdivisions__division__id', 'athlete__eventdivisions__id'],
       strategy='check',
-      check_cols=['name', 'dob', 'email', 'address'],
-      invalidate_hard_deletes=True,
+      check_cols='all',
+      hard_deletes="new_record",
     )
 }}
 
-select 
-    member_id,
-    name,
-    dob,
-    email,
-    address
-from {{ ref('members_source') }}
+with athlete_source as (
+    select 
+        *
+    from {{ source('athlete_source', 'athletes') }}
+)
+
+select * from athlete_source
 
 {% endsnapshot %}

@@ -1,0 +1,74 @@
+version: 2
+
+models:
+  - name: membership_data_current
+    description: "This model retrieves the current membership data from the members snapshot, filtering for active and valid records. It serves as the primary source for dimensions and facts."
+    columns:
+      - name: createdat
+        description: "The timestamp when the membership record was originally created."
+      - name: expired
+        description: "Boolean flag indicating if the membership has expired."
+      - name: expirydate
+        description: "The date when the membership expires."
+      - name: athlete__id
+        description: "Unique identifier for the athlete."
+      - name: athlete__dob
+        description: "Date of birth of the athlete."
+      - name: athlete__name
+        description: "Full name of the athlete."
+      - name: athlete__updatedat
+        description: "The timestamp when the athlete record was last updated."
+      - name: gender
+        description: "Gender of the athlete, coalesced from multiple possible property fields."
+      - name: athlete__properties___3__address
+        description: "Mailing address of the athlete."
+      - name: athlete__properties___4__suburb
+        description: "Suburb of the athlete's residence."
+      - name: athlete__properties___5__state
+        description: "State of the athlete's residence."
+      - name: athlete__properties___6__postcode
+        description: "Postcode of the athlete's residence."
+      - name: athlete__properties___7__are_lshkwaal_or_torres_strait_islander
+        description: "Indicator for Aboriginal or Torres Strait Islander identity."
+      - name: athlete__eventdivisions__id
+        description: "Identifier for the specific event division assignment."
+      - name: athlete__eventdivisions__division__id
+        description: "Identifier for the division."
+      - name: athlete__eventdivisions__division__name
+        description: "Name of the division."
+      - name: athlete__users__id
+        description: "Identifier for the user account associated with the athlete."
+      - name: athlete__users__email
+        description: "Email address of the user."
+      - name: athlete__users__name
+        description: "Name of the user."
+      - name: athlete__users__phone
+        description: "Phone number of the user."
+      - name: athlete__users__role
+        description: "Role assigned to the user."
+      - name: series__id
+        description: "Identifier for the competition series."
+      - name: series__name
+        description: "Name of the competition series."
+      - name: series__organisation__name
+        description: "Name of the organization managing the series."
+      - name: series__organisation__shortname
+        description: "Abbreviation of the organization name."
+      - name: series__organisation__contactemail
+        description: "Contact email for the organization."
+      - name: series__organisation__sporttype
+        description: "Type of sport managed by the organization."
+      - name: source_file
+        description: "The source file name from which the record was ingested."
+      - name: start_date
+        description: "The date from which this version of the record is valid (from snapshot)."
+        data_tests:
+          - not_null
+      - name: end_date
+        description: "The date until which this version of the record is valid. Null means it is current."
+      - name: is_deleted
+        description: "Indicates if the record was marked as deleted in the source."
+      - name: current_flag
+        description: "Boolean flag identifying the currently active and non-deleted records."
+        data_tests:
+          - not_null

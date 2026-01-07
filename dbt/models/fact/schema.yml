@@ -1,0 +1,128 @@
+version: 2
+
+models:
+  - name: fct
+    description: "Lean fact table containing linkage between athletes and relevant dimensions."
+    columns:
+      - name: athlete_id
+        description: "Foreign key to dim_athletes."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_athletes')
+                field: athlete_id
+      - name: user_id
+        description: "Foreign key to dim_users."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_id
+      - name: series_id
+        description: "Foreign key to dim_series."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_series')
+                field: series_id
+      - name: division_id
+        description: "Foreign key to dim_division."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_division')
+                field: division_id
+      - name: eventdivision_id
+        description: "Foreign key to dim_eventdivision."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_eventdivision')
+                field: eventdivision_id
+
+  - name: fct_with_all_dim
+    description: "Fully denormalized fact table containing athlete details along with associated user, series, and division information for simplified analytics."
+    columns:
+      - name: athlete_id
+        description: "Unique identifier for the athlete."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_athletes')
+                field: athlete_id
+      - name: name
+        description: "Full name of the athlete."
+      - name: gender
+        description: "Gender of the athlete."
+      - name: dob
+        description: "Date of birth of the athlete."
+      - name: created_at
+        description: "The timestamp when the membership record was created."
+        data_tests:
+          - not_null
+      - name: updated_at
+        description: "The timestamp when the athlete record was last updated."
+      - name: expired
+        description: "Indicates if the athlete's membership is expired."
+      - name: expiry_date
+        description: "The date of membership expiry."
+      - name: address
+        description: "Mailing address of the athlete."
+      - name: suburb
+        description: "Suburb of residence."
+      - name: state
+        description: "State of residence."
+      - name: postcode
+        description: "Postcode of residence."
+      - name: are_lshkwaal_or_torres_strait_islander
+        description: "Aboriginal/Torres Strait Islander indicator."
+      - name: user_id
+        description: "Unique identifier for the user."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_id
+      - name: user_name
+        description: "Name of the associated user."
+      - name: user_email
+        description: "Email of the associated user."
+      - name: user_phone
+        description: "Phone number of the associated user."
+      - name: user_role
+        description: "Role of the associated user."
+      - name: series_id
+        description: "Unique identifier for the series."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_series')
+                field: series_id
+      - name: series_name
+        description: "Name of the series."
+      - name: organization_name
+        description: "Name of the organization managing the series."
+      - name: organization_shortname
+        description: "Short name/Abbreviation of the organization."
+      - name: organization_email
+        description: "Contact email for the organization."
+      - name: organization_sporttype
+        description: "Type of sport managed by the organization."
+      - name: division_id
+        description: "Unique identifier for the division."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_division')
+                field: division_id
+      - name: division_name
+        description: "Name of the division."
+      - name: eventdivision_id
+        description: "Unique identifier for the event division."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_eventdivision')
+                field: eventdivision_id
