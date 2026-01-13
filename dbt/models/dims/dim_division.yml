@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: dim_division
+    description: "Dimension table for divisions within organisations."
+    columns:
+      - name: division_id
+        description: "Unique identifier for the division."
+        tests:
+          - unique
+          - not_null
+      - name: division_name
+        description: "Name of the division."

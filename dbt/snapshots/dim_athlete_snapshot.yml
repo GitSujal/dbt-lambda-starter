@@ -1,0 +1,10 @@
+version: 2
+
+snapshots:
+  - name: dim_athlete_snapshot
+    description: "Snapshot for dim_athlete."
+    columns:
+      - name: snapshot_pk
+        description: "Composite unique key for the snapshot."
+        data_tests:
+          - not_null

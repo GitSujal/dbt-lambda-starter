@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: liveheats_organisation
+    description: "Source model for LiveHeats organisation data. This model contains raw organisation records including both main and federated organisation details."
+    columns:
+      - name: id
+        description: "Unique identifier for the organisation."
+      - name: name
+        description: "Full name of the organisation."
+      - name: shortname
+        description: "Short name or abbreviation for the organisation."
+      - name: contactemail
+        description: "Primary contact email address for the organisation."
+      - name: sporttype
+        description: "Type of sport or sports managed by the organisation."
+      - name: series
+        description: "List of series associated with the organisation."

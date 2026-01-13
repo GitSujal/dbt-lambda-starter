@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: final_model
+    description: "The complete final model combining athletes, users, divisions, event divisions, series, and organisations."
+    columns:
+      - name: created_at
+        description: "Timestamp when the membership record was created."
+      - name: expired
+        description: "Indicator if the membership has expired."
+      - name: expiry_date
+        description: "Date when the membership expires."
+      - name: athlete_id
+        description: "Unique identifier for the athlete."
+      - name: user_id
+        description: "Unique identifier for the user."
+      - name: division_id
+        description: "Unique identifier for the division."
+      - name: series_id
+        description: "Unique identifier for the series."
+      - name: organisation_id
+        description: "Unique identifier for the organisation."
+      - name: loaded_at
+        description: "Timestamp when this record was loaded into the final model."

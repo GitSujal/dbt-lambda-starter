@@ -1,0 +1,91 @@
+version: 2
+
+snapshots:
+  - name: members_snapshot
+    description: |
+      Snapshot table to track changes in athlete memberships over time using a check strategy on all columns.
+      If any column changes, a new record is created to maintain historical data.
+      Uniqueness is determined by the combination of 'athlete_id', 'user_id', 'series_id', 'series_organisation_id', 'eventdivision_division_id', 'eventdivision_id'.
+    columns:
+      - name: snapshot_pk
+        description: "Composite unique key for the snapshot."
+        data_tests:
+          - not_null
+      - name: created_at
+        description: "Timestamp when the membership record was created."
+      - name: expired
+        description: "Boolean flag indicating if the membership is expired."
+      - name: expiry_date
+        description: "The date of membership expiry."
+      - name: athlete_id
+        description: "Unique identifier for the athlete."
+      - name: athlete_dob
+        description: "Date of birth of the athlete."
+      - name: athlete_name
+        description: "Full name of the athlete."
+      - name: athlete_updated_at
+        description: "Timestamp when the athlete record was last updated in the source."
+      - name: athlete_nationality
+        description: "Nationality of the athlete."
+      - name: athlete_gender
+        description: "Gender of the athlete."
+      - name: athlete_email
+        description: "Email address of the athlete."
+      - name: athlete_mobile
+        description: "Phone number of the athlete."
+      - name: athlete_address
+        description: "Residential address of the athlete."
+      - name: athlete_suburb
+        description: "Suburb of the athlete's residence."
+      - name: athlete_state
+        description: "State of the athlete's residence."
+      - name: athlete_postcode
+        description: "Postcode of the athlete's residence."
+      - name: athlete_are_you_asoehges_straight_islander_origin
+        description: "ASOEHGES Straight Islander origin identification."
+      - name: athlete_lshkwaal_or_torres_strait_islander
+        description: "Lshkwaal or Torres Strait Islander identification."
+      - name: athlete_parent_first_name
+        description: "First name of the athlete's parent or guardian."
+      - name: athlete_parent_last_name
+        description: "Last name of the athlete's parent or guardian."
+      - name: athlete_parent_email
+        description: "Email of the athlete's parent or guardian."
+      - name: athlete_parent_mobile
+        description: "Phone number of the athlete's parent or guardian."
+      - name: membership_division_id
+        description: "Identifier for the membership division."
+      - name: membership_division_name
+        description: "Name of the membership division."
+      - name: user_id
+        description: "Identifier for the user."
+      - name: user_email
+        description: "Email of the user."
+      - name: user_name
+        description: "Name of the user."
+      - name: user_phone
+        description: "Phone number of the user."
+      - name: user_role
+        description: "Role of the user."
+      - name: series_id
+        description: "Identifier for the series."
+      - name: series_name
+        description: "Name of the series."
+      - name: series_organisation_id
+        description: "Identifier for the organisation."
+      - name: series_organisation_name
+        description: "Name of the organisation."
+      - name: series_organisation_shortname
+        description: "Short name of the organisation."
+      - name: series_organisation_contactemail
+        description: "Contact email of the organisation."
+      - name: series_organisation_sporttype
+        description: "Sport type of the organisation."
+      - name: dbt_updated_at
+        description: "Timestamp when the record was last updated in dbt."
+      - name: dbt_valid_from
+        description: "Timestamp when the record became valid in dbt."
+        data_tests:
+          - not_null
+      - name: dbt_valid_to
+        description: "Timestamp when the record was no longer valid in dbt."

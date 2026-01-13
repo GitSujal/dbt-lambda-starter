@@ -1,0 +1,10 @@
+version: 2
+
+snapshots:
+  - name: dim_user_snapshot
+    description: "Snapshot for dim_user."
+    columns:
+      - name: snapshot_pk
+        description: "Composite unique key for the snapshot."
+        data_tests:
+          - not_null

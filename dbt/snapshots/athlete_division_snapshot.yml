@@ -1,0 +1,10 @@
+version: 2
+
+snapshots:
+  - name: athlete_division_snapshot
+    description: "Snapshot for athlete division mappings."
+    columns:
+      - name: snapshot_pk
+        description: "Composite unique key for the snapshot."
+        data_tests:
+          - not_null
