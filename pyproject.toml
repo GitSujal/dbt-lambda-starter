@@ -1,6 +1,6 @@
 [project]
 name = "dbt-lambda-starter"
-version = "1.0.0"
+version = "1.0.1"
 description = "A production-ready starter template for running dbt transformations on AWS Lambda with Athena."
 readme = "README.md"
 license = { text = "MIT" }

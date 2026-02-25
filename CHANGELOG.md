@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No unreleased changes currently. Follow the GitHub issues and pull requests for upcoming features.
 
+## [1.0.1] - 2026-02-25
+
+### Bug Fixes
+
+- fixing release pipeline to add manual release.
+- fixing release pipeline
 ## [1.0.0] - 2026-01-03
 
 ### Added
