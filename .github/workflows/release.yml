@@ -1,14 +1,17 @@
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Terraform Deploy"]
+    types:
+      - completed
     branches:
       - main
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    if: github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: write
     steps:
