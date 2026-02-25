@@ -114,6 +114,8 @@ black .
    fix(lambda): increase memory for large datasets
    ```
 
+   > **Note:** Only `feat:`, `fix:`, and breaking (`!:` / `BREAKING CHANGE`) prefixes trigger a release. Other prefixes like `docs:`, `chore:`, `refactor:`, etc. will not create a new version. Additionally, releases only run after a successful Terraform Deploy, so the commit must also touch files matched by the deploy workflow's path filters (`.tf`, `dbt/**`, `pyproject.toml`, etc.).
+
 ### Submitting
 
 1. Push your branch: `git push origin feature/your-feature-name`
