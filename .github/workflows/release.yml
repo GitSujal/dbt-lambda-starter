@@ -7,11 +7,24 @@ on:
       - completed
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: write
     steps:
@@ -28,6 +41,7 @@ jobs:
       - name: Determine version bump and create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MANUAL_BUMP: ${{ inputs.bump }}
         run: |
           set -euo pipefail
 
@@ -74,16 +88,22 @@ jobs:
             fi
           done <<< "$(git log "${LATEST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null)"
 
-          # Determine bump type
-          if [ "$HAS_BREAKING" = true ]; then
-            BUMP="major"
-          elif [ "$HAS_FEAT" = true ]; then
-            BUMP="minor"
-          elif [ "$HAS_FIX" = true ]; then
-            BUMP="patch"
+          # Determine bump type: manual input overrides auto-detection
+          if [ -n "$MANUAL_BUMP" ] && [ "$MANUAL_BUMP" != "auto" ]; then
+            BUMP="$MANUAL_BUMP"
+            echo "Using manual bump override: $BUMP"
+          else
+            # Auto-detect from conventional commits
+            if [ "$HAS_BREAKING" = true ]; then
+              BUMP="major"
+            elif [ "$HAS_FEAT" = true ]; then
+              BUMP="minor"
+            elif [ "$HAS_FIX" = true ]; then
+              BUMP="patch"
+            fi
           fi
 
-          # Exit if no conventional commits found
+          # Exit if no bump determined
           if [ -z "$BUMP" ]; then
             echo "No conventional commits found since $LATEST_TAG. Skipping release."
             exit 0
