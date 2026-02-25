@@ -17,6 +17,8 @@ This project provides a streamlined, serverless data transformation pipeline whe
 [Raw Data S3] → [dbt_runner Lambda] → [Processed S3] + [Athena/Glue Metadata]
                       ↓
               [CloudWatch Logs]
+
+[dbt Models (Git)] → [GitHub Actions] → [dbt docs generate] → [S3] → [CloudFront CDN]
 ```
 
 ## Key Features
@@ -47,7 +49,12 @@ This project provides a streamlined, serverless data transformation pipeline whe
    - **Glue Catalog Database**: Metadata for dbt to discover and create tables
    - **Athena Results Bucket**: Temporary query result storage (auto-cleaned)
 
-4. **CloudWatch**
+4. **dbt Documentation (CloudFront)**
+   - Auto-generated on every push to `main` via GitHub Actions
+   - Served via CloudFront CDN from a private S3 bucket
+   - Access URL available in Terraform outputs
+
+5. **CloudWatch**
    - Automatic logs for all Lambda executions
    - 14-day retention for debugging and monitoring
 
@@ -262,6 +269,7 @@ dbt-lambda-starter/
 │   ├── compute.tf               # Lambda functions and layers
 │   ├── dbt_runner.tf            # dbt_runner Lambda and IAM
 │   ├── storage.tf               # S3 buckets
+│   ├── cloudfront.tf            # CloudFront distribution for dbt docs
 │   ├── glue.tf                  # Glue catalog database
 │   ├── variables.tf             # Module variables
 │   └── outputs.tf               # Module outputs
@@ -278,6 +286,7 @@ dbt-lambda-starter/
 │
 ├── .gitignore                   # Git ignore rules
 ├── bootstrap_account.sh         # One-time AWS account setup
+├── cleanup.sh                   # Emergency resource cleanup script
 ├── prep_dbt_layer.sh            # Build dbt Lambda layer
 ├── main.tf                      # Root Terraform configuration
 ├── variables.tf                 # Root variables
@@ -301,12 +310,35 @@ This project includes automated GitHub Actions workflows for deployment and dest
 **What it does:**
 1. Checks out code
 2. Installs dependencies (uv sync)
-3. Authenticates to AWS using GitHub OIDC (`.arn` file)
+3. Authenticates to AWS using GitHub OIDC
 4. Runs `terraform init` (uses S3 backend from bootstrap)
 5. Runs `terraform plan` (validates changes)
 6. Runs `terraform apply -auto-approve` (deploys infrastructure)
+7. Generates dbt docs and deploys to CloudFront
 
 **No manual action needed** - just push to main and watch the workflow run!
+
+### dbt Documentation
+
+dbt docs are automatically generated and deployed to CloudFront on every push to `main`. To find your docs URL:
+
+```bash
+# From Terraform outputs
+terraform output dbt_docs_url
+
+# Or from the deployment summary
+terraform output deployment_summary
+```
+
+The docs site is served via HTTPS on a CloudFront domain (e.g., `https://d1234abcd.cloudfront.net`). It updates automatically whenever your dbt models change.
+
+To manually invalidate the CloudFront cache:
+
+```bash
+aws cloudfront create-invalidation \
+  --distribution-id $(terraform output -raw dbt_docs_distribution_id) \
+  --paths "/*"
+```
 
 ### Manual Destruction (terraform_destroy.yml)
 
@@ -316,9 +348,24 @@ This project includes automated GitHub Actions workflows for deployment and dest
 1. Go to GitHub repository → Actions → terraform_destroy
 2. Click "Run workflow"
 3. Enter "DESTROY" as confirmation
-4. Confirm to delete all infrastructure
+4. Optionally check "Also delete S3 data and TF state" for a full wipe
+5. Confirm to delete all infrastructure
+
+The workflow runs `terraform destroy` followed by a cleanup sweep for any orphaned resources.
 
 **Warning:** This destroys all AWS resources created by Terraform. Use with caution!
+
+### Emergency Cleanup (State Drift)
+
+If `terraform destroy` fails due to state drift or "resource already exists" errors, use the standalone cleanup script:
+
+```bash
+# Delete all Terraform-managed resources (keeps TF state bucket)
+./cleanup.sh
+
+# Full wipe including TF state and all S3 data (irreversible)
+./cleanup.sh --include-stateful
+```
 
 ## Deployment Guide (Local Alternative)
 
@@ -376,15 +423,6 @@ terraform destroy
 }
 ```
 
-### Generate Documentation
-
-```json
-{
-  "command": ["docs", "generate"],
-  "cli_args": []
-}
-```
-
 ### Dry Run
 
 ```json
@@ -421,8 +459,8 @@ aws resourcegroupstaggingapi get-resources \
 
 - **IAM**: Each Lambda has least-privilege permissions
 - **Encryption**: S3 buckets use AES256, with versioning enabled
-- **Public Access**: S3 buckets block all public access
-- **SSL/TLS**: All S3 operations require HTTPS
+- **Public Access**: All S3 buckets block public access; dbt docs served via CloudFront OAC
+- **SSL/TLS**: All S3 operations require HTTPS; CloudFront redirects HTTP to HTTPS
 - **Secrets**: Store sensitive data in AWS Secrets Manager (not in code)
 - **Audit Logging**: Enable CloudTrail for compliance
 
