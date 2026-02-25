@@ -62,5 +62,9 @@ test_output/
 .env
 .env.local
 
+# Bootstrap output files (no longer needed - config stored in GitHub environment variables)
+.arn
+.state-bucket
+
 # Zip files
 *.zip

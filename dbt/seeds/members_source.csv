@@ -2,3 +2,4 @@ member_id,name,dob,email,address,updated_at
 1,John Doe,1990-01-01,john_new@example.com,123 Main St,2025-01-02 00:00:00
 3,Bob Johnson,1978-11-20,bob@example.com,789 Pine Rd,2025-01-01 00:00:00
 4,Alice Brown,1992-03-10,alice@example.com,321 Elm St,2025-01-02 00:00:00
+5,Charlie Davis,1985-07-15,charles@example.com,456 Oak St,2025-01-02 00:00:00

@@ -25,6 +25,7 @@ jobs:
   terraform_deploy:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
+    environment: dev
     permissions:
       id-token: write
       contents: read
@@ -34,17 +35,11 @@ jobs:
         uses: astral-sh/setup-uv@v6
       - name: Install the project
         run: uv sync --locked
-        # read the role from .arn file and save to an env variable
-      - name: Read role ARN
-        id: read_role_arn
-        run: |
-          ROLE_ARN=$(grep 'ROLE_ARN' .arn | cut -d '=' -f2)
-          echo "ROLE_ARN=$ROLE_ARN" >> $GITHUB_ENV
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v5.1.0
         with:
-            aws-region: ap-southeast-2
-            role-to-assume: ${{ env.ROLE_ARN }}
+            aws-region: ${{ vars.AWS_REGION }}
+            role-to-assume: ${{ vars.AWS_ROLE_ARN }}
             role-session-name: ${{ github.actor }}-session-${{ github.run_id }}
 
       - name: Prep DBT Layer
@@ -54,13 +49,16 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TFSTATE_BUCKET }}" \
+            -backend-config="key=${{ vars.TFSTATE_KEY }}" \
+            -backend-config="region=${{ vars.TFSTATE_REGION }}" \
+            -reconfigure
 
       - name: Terraform Plan
         run: terraform plan
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve 
-
-  
+        run: terraform apply -auto-approve

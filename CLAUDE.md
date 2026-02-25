@@ -122,11 +122,13 @@ Note: Terraform state backend (S3 bucket) is created by ./bootstrap_account.sh
 ### One-Time Bootstrap (Required)
 
 ```bash
-# Initialize AWS account, GitHub OIDC, and Terraform state backend
-./bootstrap_account.sh ap-southeast-2
+# Initialize AWS account, GitHub OIDC, GitHub environment, and Terraform state backend
+# Requires: AWS CLI v2, gh CLI (authenticated), Terraform
+./bootstrap_account.sh ap-southeast-2        # dev environment (default)
+./bootstrap_account.sh ap-southeast-2 prod   # prod environment
 
-# Initialize Terraform with S3 backend
-terraform init
+# Bootstrap auto-runs terraform init with -backend-config flags
+# No manual terraform init needed
 ```
 
 ### Terraform Operations (Local)
@@ -252,8 +254,8 @@ dbt-lambda-starter/
 ├── main.py                       # Python entry point (example)
 ├── outputs.tf                    # Root-level outputs
 ├── provider.tf                   # AWS provider configuration
-├── terraform.tf                  # Backend configuration (auto-updated by bootstrap)
-├── terraform.tfvars              # Default variable values (auto-updated by bootstrap)
+├── terraform.tf                  # Backend configuration (partial config, values via CLI flags)
+├── terraform.tfvars              # Default variable values
 ├── variables.tf                  # Root-level variables
 ├── pyproject.toml                # Python project configuration
 ├── uv.lock                       # UV dependency lock file
@@ -439,8 +441,10 @@ git clone <repository-url>
 cd dbt-lambda-starter
 uv sync
 
-# 2. Bootstrap AWS account (one-time)
-./bootstrap_account.sh ap-southeast-2
+# 2. Bootstrap AWS account (one-time per environment)
+# Requires: AWS CLI v2, gh CLI (authenticated), Terraform
+./bootstrap_account.sh ap-southeast-2        # dev (default)
+./bootstrap_account.sh ap-southeast-2 prod   # prod (optional)
 
 # 3. Update configuration
 # Edit terraform.tfvars with your bucket_prefix and other settings
@@ -451,8 +455,7 @@ uv sync
 git push origin main
 # → Automatic terraform plan and apply
 
-# Option B: Local Terraform
-terraform init
+# Option B: Local Terraform (backend already initialized by bootstrap)
 terraform plan
 terraform apply
 
@@ -472,6 +475,17 @@ aws logs tail /aws/lambda/dev-dbt-runner --follow
 
 ## GitHub Actions CI/CD Workflows
 
+Workflows use **GitHub Environments** to access configuration. Bootstrap creates a GitHub environment (dev/prod) with environment variables that workflows reference via `${{ vars.* }}`.
+
+### Environment Variables (set by bootstrap)
+
+- `AWS_ROLE_ARN`: IAM role ARN for OIDC authentication
+- `AWS_REGION`: AWS region for deployments
+- `AWS_ACCOUNT_ID`: AWS account ID
+- `TFSTATE_BUCKET`: S3 bucket for Terraform state
+- `TFSTATE_KEY`: Terraform state file key
+- `TFSTATE_REGION`: Region of the Terraform state bucket
+
 ### Automatic Deployment (terraform_deploy.yml)
 
 This workflow runs automatically on every push to the `main` branch.
@@ -479,11 +493,10 @@ This workflow runs automatically on every push to the `main` branch.
 **Workflow Steps:**
 1. Checkout code from repository
 2. Install uv and Python dependencies
-3. Read `.arn` file (GitHub Actions role ARN)
-4. Assume AWS role via OIDC (no credentials stored in repository)
-5. Run `terraform init` (uses S3 backend from bootstrap)
-6. Run `terraform plan` (validates changes)
-7. Run `terraform apply -auto-approve` (deploys infrastructure)
+3. Assume AWS role via OIDC using `${{ vars.AWS_ROLE_ARN }}` from GitHub environment
+4. Run `terraform init` with `-backend-config` flags from environment variables
+5. Run `terraform plan` (validates changes)
+6. Run `terraform apply -auto-approve` (deploys infrastructure)
 
 **Usage:**
 ```bash
@@ -510,6 +523,9 @@ This workflow destroys all infrastructure and must be manually triggered.
 ### Security Notes
 
 - **No AWS credentials in repository**: Uses GitHub OIDC federation
+- **Environment-scoped OIDC**: Trust policy uses `repo:REPO:environment:ENV` (not branch-based)
+- **Per-repo/env IAM roles**: Role named `GitHubActions-{repo}-{env}-DeployRole`
+- **No file-based config**: All config stored as GitHub environment variables
 - **Role-based access**: Limited permissions via IAM role
 - **Audit trail**: All deployments logged in GitHub Actions and AWS CloudTrail
 - **State locking**: S3 backend prevents concurrent deployments
@@ -517,119 +533,122 @@ This workflow destroys all infrastructure and must be manually triggered.
 ## Important Notes
 
 - **Do not commit**: `*.tfstate`, `.terraform/` (in .gitignore)
-- **Bootstrap**: Run `./bootstrap_account.sh` once to set up AWS account infrastructure
+- **Bootstrap**: Run `./bootstrap_account.sh [REGION] [ENV]` once per environment to set up AWS account infrastructure
+- **Prerequisites**: Bootstrap requires AWS CLI v2, `gh` CLI (authenticated), and Terraform
 - **dbt Layer**: Auto-built by `prep_dbt_layer.sh` with arm64-compatible dependencies
 - **Python Runtime**: Lambda uses Python 3.12 with arm64 (Graviton) architecture
 - **Default Region**: ap-southeast-2; specify different region as argument to bootstrap script
 - **No API Ingestion**: Starter focuses on transformation; users implement data ingestion separately
 - **Athena Results**: Auto-cleaned after 30 days; don't depend on old query results
-- **GitHub OIDC**: Bootstrap creates federated identity for CI/CD
-- **`.arn` file**: Contains GitHub Actions role ARN; must be committed to repository
-- **`.state-bucket` file**: Contains Terraform state bucket name; git-ignored
+- **GitHub OIDC**: Bootstrap creates federated identity for CI/CD with environment-scoped trust
+- **GitHub Environments**: All config (role ARN, region, state bucket) stored as GitHub environment variables
+- **No file modifications**: Bootstrap does not modify `terraform.tf` or `terraform.tfvars`; backend config is passed via CLI flags
+- **Partial backend config**: `terraform.tf` has an empty `backend "s3" {}` block; actual values provided via `-backend-config` flags
 
 ## Bootstrap and Initial Setup
 
-### Account Bootstrap (One-time)
+### Account Bootstrap (One-time per environment)
 
-Bootstrap your AWS account to set up GitHub Actions integration and Terraform state backend. This creates all necessary resources using AWS CLI and auto-configures Terraform:
+Bootstrap your AWS account to set up GitHub Actions integration and Terraform state backend. This creates all necessary resources using AWS CLI and the `gh` CLI, with no local file modifications:
 
 ```bash
 # From project root
-./bootstrap_account.sh [AWS_REGION]
+./bootstrap_account.sh [AWS_REGION] [ENVIRONMENT]
 
-# Example:
-./bootstrap_account.sh ap-southeast-2
+# Examples:
+./bootstrap_account.sh ap-southeast-2          # dev environment (default)
+./bootstrap_account.sh ap-southeast-2 prod     # prod environment
 ```
+
+**Prerequisites:**
+- AWS CLI v2 installed and configured with AdministratorAccess
+- GitHub CLI (`gh`) installed and authenticated
+- Terraform >= 1.0 installed
 
 **Bootstrap does the following:**
 
-1. ✓ Verify AWS CLI v2 and credentials
+1. ✓ Verify AWS CLI v2, `gh` CLI, and credentials
 2. ✓ Determine AWS region (from argument or existing AWS config)
 3. ✓ Create GitHub OIDC provider (federated identity)
-4. ✓ Create IAM role for GitHub Actions with admin permissions
-5. ✓ Create S3 bucket for Terraform state with:
-   - Versioning enabled for history/rollback
-   - AES256 encryption for security
-   - Public access blocked
-   - HTTPS-only policy enforcement
-6. ✓ **Automatically update configuration files:**
-   - `terraform.tf`: Backend bucket name & region
-   - `terraform.tfvars`: AWS region for deployments
-7. ✓ Save configuration to output files
+4. ✓ Create per-repo/env IAM role: `GitHubActions-{repo}-{env}-DeployRole`
+   - Trust policy scoped to `repo:OWNER/REPO:environment:ENV`
+5. ✓ Create GitHub environment (dev/prod) with environment variables:
+   - `AWS_ROLE_ARN`, `AWS_REGION`, `AWS_ACCOUNT_ID`
+6. ✓ Create S3 bucket for Terraform state: `{repo}-terraform-state-{account_id}`
+   - Versioning, encryption, public access blocking, HTTPS-only
+7. ✓ Set Terraform state variables in GitHub environment:
+   - `TFSTATE_BUCKET`, `TFSTATE_KEY`, `TFSTATE_REGION`
+8. ✓ Auto-run `terraform init` with `-backend-config` flags
 
-**Output files created:**
-- `.arn`: GitHub Actions role ARN for workflow configuration
-- `.state-bucket`: S3 bucket name for Terraform state
+**No files are modified or created** - all configuration is stored in GitHub environment variables.
 
-**Configuration files auto-updated:**
-- `terraform.tf`: Backend block with bucket and region
-- `terraform.tfvars`: AWS region for all deployments
+### Terraform Backend (Partial Configuration)
 
-### Enable Terraform Remote State
-
-After bootstrap completes, enable remote state management:
+The `terraform.tf` file uses an empty `backend "s3" {}` block. Actual backend values are provided via CLI flags:
 
 ```bash
-# Migrate from local state to S3
-terraform init -migrate-state
+# Local development (bootstrap runs this automatically):
+terraform init \
+  -backend-config="bucket=BUCKET_NAME" \
+  -backend-config="key=terraform.tfstate" \
+  -backend-config="region=REGION"
 
-# Answer 'yes' when prompted to copy existing state
+# CI/CD uses GitHub environment variables:
+terraform init \
+  -backend-config="bucket=${{ vars.TFSTATE_BUCKET }}" \
+  -backend-config="key=${{ vars.TFSTATE_KEY }}" \
+  -backend-config="region=${{ vars.TFSTATE_REGION }}" \
+  -reconfigure
 ```
-
-This command:
-- Initializes the S3 backend (bucket already exists from bootstrap)
-- Migrates any existing local state to S3
-- Creates `.terraform/` configuration directory
 
 ### GitHub Actions CI/CD Integration
 
-The project includes pre-configured GitHub Actions workflows. Bootstrap automatically creates the OIDC role needed for authentication.
+The project includes pre-configured GitHub Actions workflows. Bootstrap automatically creates the OIDC role and GitHub environment needed for authentication.
 
 **Pre-configured Workflows:**
 
 1. **terraform_deploy.yml** (Automatic on push to main)
    - Triggered: Every push to `main` branch
+   - Uses GitHub environment: `dev`
    - Steps:
-     - Authenticate via GitHub OIDC (uses `.arn` file)
+     - Authenticate via GitHub OIDC (uses `${{ vars.AWS_ROLE_ARN }}`)
      - Install dependencies (uv sync)
-     - Terraform init/plan/apply
+     - Terraform init with `-backend-config` from environment variables
+     - Terraform plan/apply
    - No additional setup needed!
 
 2. **terraform_destroy.yml** (Manual dispatch)
    - Triggered: Manual GitHub Actions workflow
+   - Uses GitHub environment: `dev`
    - Steps:
      - Authenticate via GitHub OIDC
+     - Terraform init with `-backend-config` from environment variables
      - Runs `terraform destroy -auto-approve`
      - Requires "DESTROY" confirmation input
-
-**The `.arn` file:**
-- Automatically created by bootstrap_account.sh
-- Contains the GitHub Actions role ARN
-- Used by workflows to authenticate with AWS
-- Must be committed to the repository
 
 ## Deployment Checklist
 
 ### Prerequisites
 - [ ] AWS CLI v2 installed and configured with AdministratorAccess
+- [ ] GitHub CLI (`gh`) installed and authenticated
 - [ ] Git repository cloned with GitHub remote
 - [ ] Python 3.12 available (via pyenv, .python-version)
 - [ ] Terraform >= 1.0 installed
 
-### Bootstrap Phase (One-time)
-- [ ] Run: `./bootstrap_account.sh ap-southeast-2`
+### Bootstrap Phase (One-time per environment)
+- [ ] Run: `./bootstrap_account.sh ap-southeast-2` (or `./bootstrap_account.sh ap-southeast-2 prod`)
   - ✓ Creates GitHub OIDC provider
-  - ✓ Creates IAM role for GitHub Actions
+  - ✓ Creates per-repo/env IAM role for GitHub Actions
+  - ✓ Creates GitHub environment with variables
   - ✓ Creates S3 bucket for Terraform state
-  - ✓ Auto-updates `terraform.tf` backend
-  - ✓ Auto-updates `terraform.tfvars` region
-  - ✓ Creates `.arn` file
-- [ ] Verify `.arn` file created: `cat .arn`
-- [ ] Verify `.state-bucket` file created
+  - ✓ Sets Terraform state variables in GitHub environment
+  - ✓ Auto-runs `terraform init` with backend config
+- [ ] Verify GitHub environment created at repo Settings > Environments
+- [ ] Verify environment variables set (AWS_ROLE_ARN, TFSTATE_BUCKET, etc.)
 
 ### Terraform Initialization
 - [ ] Update `terraform.tfvars` with unique `bucket_prefix`
-- [ ] Run: `terraform init` (uses S3 backend from bootstrap)
+- [ ] Terraform backend already initialized by bootstrap (no manual init needed)
 - [ ] Run: `terraform validate` to check configuration
 
 ### Infrastructure Deployment (Choose One)
@@ -660,9 +679,13 @@ The project includes pre-configured GitHub Actions workflows. Bootstrap automati
 - Install AWS CLI v2: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 - Verify installation: `aws --version`
 
-**Error: "AdministratorAccess policy is required"**
-- Bootstrap script checks for admin permissions to create IAM roles and OIDC provider
-- Ensure your AWS user/role has `AdministratorAccess` policy attached
+**Error: "GitHub CLI (gh) is required"**
+- Install gh CLI: https://cli.github.com
+- Authenticate: `gh auth login`
+
+**Error: "Insufficient permissions"**
+- Bootstrap checks permissions by running `aws iam list-roles`
+- Ensure your AWS user/role has `AdministratorAccess` policy or equivalent
 - Contact your AWS account administrator if you don't have these permissions
 
 **Error: "No git remote 'origin' found"**
@@ -672,18 +695,18 @@ The project includes pre-configured GitHub Actions workflows. Bootstrap automati
 
 **Error: "S3 bucket creation failed"**
 - S3 bucket names must be globally unique
-- Check if bucket with that name already exists: `aws s3 ls | grep terraform-state`
+- Bucket name pattern: `{sanitized-repo}-terraform-state-{account_id}`
+- Check if bucket already exists: `aws s3 ls | grep terraform-state`
 - If it exists from a previous bootstrap, script will reuse it
 
-**No output files created**
-- Check script completed with `echo $?` (should be 0 for success)
-- Verify `.arn` and `.state-bucket` files: `ls -la .arn .state-bucket`
-- If missing, rerun bootstrap
+**GitHub environment variables not set**
+- Ensure `gh` CLI is authenticated with appropriate permissions
+- Verify repo access: `gh repo view`
+- Manually create environment and set variables at: `https://github.com/OWNER/REPO/settings/environments`
 
-**terraform.tf not updated with bucket name**
-- Check file permissions: `ls -la terraform.tf`
-- Verify sed syntax works on your system (macOS vs Linux have different sed)
-- Manually update bucket name in `terraform.tf` backend block if needed
+**Terraform init failed during bootstrap**
+- Bootstrap auto-runs `terraform init` with backend config flags
+- Retry manually: `terraform init -backend-config="bucket=BUCKET" -backend-config="key=terraform.tfstate" -backend-config="region=REGION" -migrate-state`
 
 ### Terraform Issues
 
