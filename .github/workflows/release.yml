@@ -1,0 +1,178 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine version bump and create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Get the latest tag, or v0.0.0 if none exists
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+
+          # Parse version components
+          VERSION="${LATEST_TAG#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # Analyze commits since last tag
+          BUMP=""
+          HAS_BREAKING=false
+          HAS_FEAT=false
+          HAS_FIX=false
+
+          BREAKING_CHANGES=""
+          FEATURES=""
+          FIXES=""
+
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+
+            # Extract subject (first line of commit message)
+            SUBJECT="$line"
+
+            # Check for breaking changes
+            if echo "$SUBJECT" | grep -qE '^[a-z]+(\(.+\))?!:' || echo "$SUBJECT" | grep -qi 'BREAKING CHANGE'; then
+              HAS_BREAKING=true
+              # Clean up the message for changelog
+              MSG=$(echo "$SUBJECT" | sed -E 's/^[a-z]+(\(.+\))?!:\s*//')
+              BREAKING_CHANGES="${BREAKING_CHANGES}- ${MSG}\n"
+            # Check for features
+            elif echo "$SUBJECT" | grep -qE '^feat(\(.+\))?:'; then
+              HAS_FEAT=true
+              MSG=$(echo "$SUBJECT" | sed -E 's/^feat(\(.+\))?:\s*//')
+              FEATURES="${FEATURES}- ${MSG}\n"
+            # Check for fixes
+            elif echo "$SUBJECT" | grep -qE '^fix(\(.+\))?:'; then
+              HAS_FIX=true
+              MSG=$(echo "$SUBJECT" | sed -E 's/^fix(\(.+\))?:\s*//')
+              FIXES="${FIXES}- ${MSG}\n"
+            fi
+          done <<< "$(git log "${LATEST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null)"
+
+          # Determine bump type
+          if [ "$HAS_BREAKING" = true ]; then
+            BUMP="major"
+          elif [ "$HAS_FEAT" = true ]; then
+            BUMP="minor"
+          elif [ "$HAS_FIX" = true ]; then
+            BUMP="patch"
+          fi
+
+          # Exit if no conventional commits found
+          if [ -z "$BUMP" ]; then
+            echo "No conventional commits found since $LATEST_TAG. Skipping release."
+            exit 0
+          fi
+
+          echo "Bump type: $BUMP"
+
+          # Calculate new version
+          case "$BUMP" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          NEW_TAG="v${NEW_VERSION}"
+          echo "New version: $NEW_VERSION ($NEW_TAG)"
+
+          # Build changelog entry
+          TODAY=$(date +%Y-%m-%d)
+          CHANGELOG_ENTRY="## [${NEW_VERSION}] - ${TODAY}\n"
+
+          if [ -n "$BREAKING_CHANGES" ]; then
+            CHANGELOG_ENTRY="${CHANGELOG_ENTRY}\n### Breaking Changes\n\n${BREAKING_CHANGES}"
+          fi
+          if [ -n "$FEATURES" ]; then
+            CHANGELOG_ENTRY="${CHANGELOG_ENTRY}\n### Features\n\n${FEATURES}"
+          fi
+          if [ -n "$FIXES" ]; then
+            CHANGELOG_ENTRY="${CHANGELOG_ENTRY}\n### Bug Fixes\n\n${FIXES}"
+          fi
+
+          # Update pyproject.toml version
+          sed -i "s/^version = \".*\"/version = \"${NEW_VERSION}\"/" pyproject.toml
+
+          # Prepend new version to CHANGELOG.md (insert after ## Unreleased section)
+          # Find the Unreleased section and insert the new version after it
+          if grep -q "^## Unreleased" CHANGELOG.md; then
+            # Insert new entry after the Unreleased paragraph
+            ESCAPED_ENTRY=$(echo -e "$CHANGELOG_ENTRY" | sed 's/[&/\]/\\&/g')
+            # Use awk to insert after the Unreleased block
+            awk -v entry="$(echo -e "$CHANGELOG_ENTRY")" '
+              /^## Unreleased/ { found=1; print; next }
+              found && /^## \[/ {
+                print entry
+                found=0
+              }
+              { print }
+            ' CHANGELOG.md > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+          else
+            # No Unreleased section; insert after the header
+            awk -v entry="$(echo -e "$CHANGELOG_ENTRY")" '
+              /^## \[/ && !inserted {
+                print entry
+                inserted=1
+              }
+              { print }
+            ' CHANGELOG.md > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+          fi
+
+          # Build release body for GitHub Release
+          RELEASE_BODY=""
+          if [ -n "$BREAKING_CHANGES" ]; then
+            RELEASE_BODY="${RELEASE_BODY}### Breaking Changes\n\n${BREAKING_CHANGES}\n"
+          fi
+          if [ -n "$FEATURES" ]; then
+            RELEASE_BODY="${RELEASE_BODY}### Features\n\n${FEATURES}\n"
+          fi
+          if [ -n "$FIXES" ]; then
+            RELEASE_BODY="${RELEASE_BODY}### Bug Fixes\n\n${FIXES}\n"
+          fi
+
+          # Commit version bump
+          git add pyproject.toml CHANGELOG.md
+          git commit -m "chore(release): ${NEW_VERSION} [skip ci]"
+
+          # Create annotated tag
+          git tag -a "$NEW_TAG" -m "Release ${NEW_VERSION}"
+
+          # Push commit and tag
+          git push origin main --follow-tags
+
+          # Create GitHub Release
+          echo -e "$RELEASE_BODY" | gh release create "$NEW_TAG" \
+            --title "$NEW_TAG" \
+            --notes-file -

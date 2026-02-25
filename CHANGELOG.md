@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+No unreleased changes currently. Follow the GitHub issues and pull requests for upcoming features.
+
 ## [1.0.0] - 2026-01-03
 
 ### Added
@@ -60,7 +64,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Breaking changes increment MAJOR version
 - New features increment MINOR version
 - Bug fixes increment PATCH version
-
-## Unreleased
-
-No unreleased changes currently. Follow the GitHub issues and pull requests for upcoming features.

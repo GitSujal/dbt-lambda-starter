@@ -22,6 +22,7 @@ terraform.tfvars.json
 dbt_packages/
 dbt/target/
 dbt/logs/
+dbt/.user.yml
 
 # dbt layer (pre-built Lambda layer - regenerate locally or via CI/CD)
 dbt_layer/

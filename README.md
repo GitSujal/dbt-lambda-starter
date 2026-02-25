@@ -1,6 +1,7 @@
 # dbt-on-Lambda Starter
 
-[![Terraform Deploy](https://github.com/GitSujal/dbt-lambda-starter/actions/workflows/terraform_deploy.yml/badge.svg)](https://github.com/GitSujal/dbt-lambda-starter/actions/workflows/terraform_deploy.yml)
+<!-- Update the badge URL below with your GitHub username/org after forking -->
+<!-- [![Terraform Deploy](https://github.com/<OWNER>/dbt-lambda-starter/actions/workflows/terraform_deploy.yml/badge.svg)](https://github.com/<OWNER>/dbt-lambda-starter/actions/workflows/terraform_deploy.yml) -->
 
 A production-ready starter template for running [dbt](https://www.getdbt.com/) transformations on AWS Lambda using Athena as the data warehouse. Built with Terraform for infrastructure-as-code.
 
@@ -89,11 +90,10 @@ The bootstrap script sets up GitHub OIDC authentication and Terraform state back
 
 **What bootstrap does:**
 - ✓ Creates GitHub OIDC provider for secure CI/CD authentication
-- ✓ Creates IAM role for GitHub Actions deployment
+- ✓ Creates per-repo/env IAM role for GitHub Actions deployment
 - ✓ Creates S3 bucket for Terraform state with encryption and versioning
-- ✓ Updates `terraform.tf` with state backend configuration
-- ✓ Updates `terraform.tfvars` with your AWS region
-- ✓ Outputs `.arn` file containing the GitHub Actions role ARN
+- ✓ Creates GitHub environment with all required variables (role ARN, state bucket, region)
+- ✓ Runs `terraform init` with backend config flags (no local files modified)
 
 ### Step 3: Configure Your Project
 
@@ -281,6 +281,7 @@ dbt-lambda-starter/
 │       └── terraform.tfvars
 │
 ├── .github/workflows/           # GitHub Actions CI/CD pipelines
+│   ├── release.yml              # Automated releases via conventional commits
 │   ├── terraform_deploy.yml     # Auto-deploy on push to main
 │   └── terraform_destroy.yml    # Manual destroy workflow
 │
@@ -339,6 +340,19 @@ aws cloudfront create-invalidation \
   --distribution-id $(terraform output -raw dbt_docs_distribution_id) \
   --paths "/*"
 ```
+
+### Automated Releases (release.yml)
+
+**Triggered:** Every push to `main` with conventional commit messages
+
+Releases are automated using [Conventional Commits](https://www.conventionalcommits.org/). When you push to `main`, the release workflow parses commit messages to determine the version bump:
+
+- `feat:` commits trigger a **minor** version bump (1.x.0)
+- `fix:` commits trigger a **patch** version bump (1.0.x)
+- `feat!:` or `BREAKING CHANGE` commits trigger a **major** version bump (x.0.0)
+- Other prefixes (`docs:`, `chore:`, `refactor:`) do not trigger a release
+
+The workflow automatically updates `pyproject.toml`, prepends to `CHANGELOG.md`, creates a git tag, and publishes a GitHub Release. See [CONTRIBUTING.md](CONTRIBUTING.md) for commit message format.
 
 ### Manual Destruction (terraform_destroy.yml)
 
@@ -576,7 +590,9 @@ s3_staging_dir: s3://<bucket>-athena-results-<account>/
 
 ## Contributing
 
-Found a bug or have an improvement? Please open an issue or submit a pull request!
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on development workflow, pull request process, and code style.
+
+Before contributing, please read our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 

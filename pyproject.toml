@@ -23,3 +23,7 @@ dependencies = [
     "dbt-athena>=1.10.0",
     "dbt-core>=1.11.2"
 ]
+
+[project.urls]
+Repository = "https://github.com/GitSujal/dbt-lambda-starter"
+Issues = "https://github.com/GitSujal/dbt-lambda-starter/issues"

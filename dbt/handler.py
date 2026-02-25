@@ -221,12 +221,12 @@ def handler(event, context):
     4. Returns success or failure response.
     5. Logs output to /tmp/logs and /tmp/target.
     6. Raises exception on failure.
-    7. Default command is 'build' with selection of 'my_second_dbt_model
+    7. Default command is 'build' with no model selection (runs all models).
 
     Event example::
     {
         "command": ["build"],
-        "cli_args": ["--select", "+my_second_dbt_model"]
+        "cli_args": ["--select", "+my_model"]
     }
 
     Another example:
@@ -244,7 +244,7 @@ def handler(event, context):
 
     # Prepare CLI arguments
     command = event.get("command", ["build"])
-    cli_args = event.get("cli_args", ["--select", "+my_second_dbt_model"])
+    cli_args = event.get("cli_args", [])
 
     print(f"Running dbt {' '.join(command)} {' '.join(cli_args)}")
 
@@ -267,7 +267,7 @@ if __name__ == "__main__":
     # For local testing
     test_event = {
         "command": ["build"],
-        "cli_args": ["--select", "+my_second_dbt_model"],
+        "cli_args": [],
     }
     test_context = {}
     handler(test_event, test_context)

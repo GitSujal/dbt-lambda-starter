@@ -1,0 +1,52 @@
+name: Terraform Validate
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install the project
+        run: uv sync --locked
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5.1.0
+        with:
+            aws-region: ${{ vars.AWS_REGION }}
+            role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+            role-session-name: ${{ github.actor }}-pr-${{ github.event.pull_request.number }}
+
+      - name: Prep DBT Layer
+        run: bash prep_dbt_layer.sh
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TFSTATE_BUCKET }}" \
+            -backend-config="key=${{ vars.TFSTATE_KEY }}" \
+            -backend-config="region=${{ vars.TFSTATE_REGION }}" \
+            -reconfigure
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -no-color

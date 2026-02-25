@@ -4,14 +4,14 @@ Thank you for your interest in contributing to the dbt-on-Lambda starter project
 
 ## Code of Conduct
 
-This project is committed to providing a welcoming and inclusive environment. All contributors are expected to treat each other with respect and professionalism.
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing. All contributors are expected to treat each other with respect and professionalism.
 
 ## Getting Started
 
 ### 1. Fork and Clone
 
 ```bash
-git clone https://github.com/yourusername/dbt-lambda-starter.git
+git clone https://github.com/<your-username>/dbt-lambda-starter.git
 cd dbt-lambda-starter
 ```
 
@@ -87,9 +87,32 @@ black .
    - Ensure no sensitive data is committed
 
 3. **Commit Messages**
-   - Use clear, descriptive commit messages
+   - Use [Conventional Commits](https://www.conventionalcommits.org/) format
+   - This drives automated versioning and changelog generation
    - Reference issues when applicable: "Fixes #123"
-   - Use present tense: "Add feature" not "Added feature"
+
+   **Format:** `<type>[optional scope]: <description>`
+
+   | Prefix | Purpose | Version Bump |
+   |--------|---------|-------------|
+   | `feat:` | New feature | Minor (1.x.0) |
+   | `fix:` | Bug fix | Patch (1.0.x) |
+   | `feat!:` | Breaking feature | Major (x.0.0) |
+   | `fix!:` | Breaking fix | Major (x.0.0) |
+   | `docs:` | Documentation only | No release |
+   | `chore:` | Maintenance | No release |
+   | `refactor:` | Code restructuring | No release |
+   | `test:` | Adding tests | No release |
+   | `ci:` | CI/CD changes | No release |
+
+   **Examples:**
+   ```
+   feat: add new dbt model for user metrics
+   fix: correct Athena query timeout in handler
+   feat!: rename raw bucket prefix (breaking change)
+   docs: update troubleshooting guide
+   fix(lambda): increase memory for large datasets
+   ```
 
 ### Submitting
 
