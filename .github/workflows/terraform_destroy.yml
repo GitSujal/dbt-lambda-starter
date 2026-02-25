@@ -1,3 +1,4 @@
+name: Terraform Destroy
 on:
   workflow_dispatch:
     inputs:
@@ -5,6 +6,11 @@ on:
         description: 'Type "DESTROY" to confirm stack deletion'
         required: true
         type: string
+      include_stateful:
+        description: 'Also delete S3 data and TF state (irreversible)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   terraform_destroy:
@@ -40,3 +46,12 @@ jobs:
 
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
+
+      - name: Cleanup orphaned resources
+        if: always()
+        run: |
+          CLEANUP_ARGS=""
+          if [ "${{ github.event.inputs.include_stateful }}" = "true" ]; then
+            CLEANUP_ARGS="--include-stateful"
+          fi
+          bash cleanup.sh $CLEANUP_ARGS <<< "DESTROY"
