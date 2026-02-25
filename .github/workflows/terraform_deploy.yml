@@ -64,8 +64,20 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve
 
+      - name: Export Terraform outputs
+        id: tf_outputs
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "processed_bucket=$(terraform output -json data_buckets | jq -r '.processed')" >> "$GITHUB_OUTPUT"
+          echo "athena_results_bucket=$(terraform output -raw athena_results_bucket)" >> "$GITHUB_OUTPUT"
+          echo "glue_database_name=$(terraform output -raw glue_database_name)" >> "$GITHUB_OUTPUT"
+
       - name: Generate and deploy dbt docs
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          PROCESSED_BUCKET_NAME: ${{ steps.tf_outputs.outputs.processed_bucket }}
+          ATHENA_RESULTS_BUCKET: ${{ steps.tf_outputs.outputs.athena_results_bucket }}
+          GLUE_DATABASE_NAME: ${{ steps.tf_outputs.outputs.glue_database_name }}
         run: |
           cd dbt
           uv run dbt docs generate --target dev
