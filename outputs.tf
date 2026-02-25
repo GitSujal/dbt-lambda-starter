@@ -36,6 +36,21 @@ output "dbt_runner_name" {
   value       = module.infrastructure.dbt_runner_name
 }
 
+output "dbt_docs_bucket" {
+  description = "S3 bucket for dbt documentation"
+  value       = module.infrastructure.dbt_docs_bucket
+}
+
+output "dbt_docs_url" {
+  description = "URL of the dbt documentation site served via CloudFront"
+  value       = module.infrastructure.dbt_docs_url
+}
+
+output "dbt_docs_distribution_id" {
+  description = "CloudFront distribution ID for dbt docs (useful for cache invalidation)"
+  value       = module.infrastructure.dbt_docs_distribution_id
+}
+
 output "deployment_summary" {
   description = "Summary of the dbt-on-Lambda starter deployment"
   value = {
@@ -46,5 +61,6 @@ output "deployment_summary" {
     athena_results    = module.infrastructure.athena_results_bucket
     glue_database     = module.infrastructure.glue_database_name
     dbt_runner_lambda = module.infrastructure.dbt_runner_name
+    dbt_docs_url      = module.infrastructure.dbt_docs_url
   }
 }

@@ -62,3 +62,17 @@ jobs:
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve
+
+      - name: Generate and deploy dbt docs
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          cd dbt
+          uv run dbt docs generate --target dev
+          DBT_DOCS_BUCKET=$(cd .. && terraform output -raw dbt_docs_bucket)
+          aws s3 sync target/ "s3://${DBT_DOCS_BUCKET}/" \
+            --delete \
+            --include "*.html" --include "*.json" --include "*.css" --include "*.js"
+          DISTRIBUTION_ID=$(cd .. && terraform output -raw dbt_docs_distribution_id)
+          aws cloudfront create-invalidation \
+            --distribution-id "${DISTRIBUTION_ID}" \
+            --paths "/*"

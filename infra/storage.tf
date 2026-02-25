@@ -1,8 +1,8 @@
 
 # Raw Bucket
 resource "aws_s3_bucket" "raw" {
-  bucket              = lower("${var.bucket_prefix}-raw")
-  force_destroy       = true
+  bucket        = lower("${var.bucket_prefix}-raw-${data.aws_caller_identity.current.account_id}")
+  force_destroy = true
 
   tags = merge(
     {
@@ -97,8 +97,8 @@ resource "aws_s3_bucket_intelligent_tiering_configuration" "raw_tiering" {
 
 # Processed Bucket
 resource "aws_s3_bucket" "processed" {
-  bucket              = lower("${var.bucket_prefix}-processed")
-  force_destroy       = true
+  bucket        = lower("${var.bucket_prefix}-processed-${data.aws_caller_identity.current.account_id}")
+  force_destroy = true
 
   tags = merge(
     {
@@ -177,13 +177,13 @@ resource "aws_s3_bucket_intelligent_tiering_configuration" "processed_tiering" {
 
 # dbt State Bucket
 resource "aws_s3_bucket" "dbt_state" {
-  bucket              = lower("${var.bucket_prefix}-dbt-state")
-  force_destroy       = true
+  bucket        = lower("${var.bucket_prefix}-dbt-state-${data.aws_caller_identity.current.account_id}")
+  force_destroy = true
 
   tags = merge(
     {
-      Name  = "${var.bucket_prefix}-dbt-state"
-      Type  = "dbt-State-Bucket"
+      Name    = "${var.bucket_prefix}-dbt-state"
+      Type    = "dbt-State-Bucket"
       Purpose = "dbt-manifest-and-artifacts"
     },
     var.extra_tags
@@ -257,13 +257,13 @@ resource "aws_s3_bucket_intelligent_tiering_configuration" "dbt_state_tiering" {
 
 # dbt Docs Static Website Bucket (Public)
 resource "aws_s3_bucket" "dbt_docs" {
-  bucket              = lower("${var.bucket_prefix}-dbt-docs")
-  force_destroy       = true
+  bucket        = lower("${var.bucket_prefix}-dbt-docs-${data.aws_caller_identity.current.account_id}")
+  force_destroy = true
 
   tags = merge(
     {
-      Name  = "${var.bucket_prefix}-dbt-docs"
-      Type  = "dbt-Docs-Bucket"
+      Name    = "${var.bucket_prefix}-dbt-docs"
+      Type    = "dbt-Docs-Bucket"
       Purpose = "Static-Website-Hosting"
     },
     var.extra_tags
@@ -280,33 +280,51 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "dbt_docs_encrypti
   }
 }
 
-# Note: Public access is blocked by default. To enable public access, manually:
-# 1. Update public_access_block settings
-# 2. Add bucket policy via AWS console or Terraform variable
-# This prevents accidental public exposure during development
-
-# Enable static website hosting
-resource "aws_s3_bucket_website_configuration" "dbt_docs_website" {
+resource "aws_s3_bucket_public_access_block" "dbt_docs_access" {
   bucket = aws_s3_bucket.dbt_docs.id
 
-  index_document {
-    suffix = "index.html"
-  }
-
-  error_document {
-    key = "error.html"
-  }
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
-# Configure CORS for dbt docs
-resource "aws_s3_bucket_cors_configuration" "dbt_docs_cors" {
-  bucket = aws_s3_bucket.dbt_docs.id
+resource "aws_s3_bucket_policy" "dbt_docs_policy" {
+  bucket     = aws_s3_bucket.dbt_docs.id
+  depends_on = [aws_s3_bucket_public_access_block.dbt_docs_access]
 
-  cors_rule {
-    allowed_headers = ["*"]
-    allowed_methods = ["GET", "HEAD"]
-    allowed_origins = ["*"]
-    expose_headers  = ["ETag"]
-    max_age_seconds = 3000
-  }
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowSSLRequestsOnly"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.dbt_docs.arn,
+          "${aws_s3_bucket.dbt_docs.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
+      {
+        Sid    = "AllowCloudFrontAccess"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.dbt_docs.arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.dbt_docs.arn
+          }
+        }
+      }
+    ]
+  })
 }

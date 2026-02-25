@@ -146,21 +146,6 @@ resource "aws_iam_policy" "dbt_runner_policy" {
           aws_s3_bucket.dbt_state.arn,
           "${aws_s3_bucket.dbt_state.arn}/*"
         ]
-      },
-      {
-        Sid    = "DbtDocsAccess"
-        Effect = "Allow"
-        Action = [
-          "s3:PutObject",
-          "s3:PutObjectAcl",
-          "s3:DeleteObject",
-          "s3:ListBucket",
-          "s3:GetBucketLocation"
-        ]
-        Resource = [
-          aws_s3_bucket.dbt_docs.arn,
-          "${aws_s3_bucket.dbt_docs.arn}/*"
-        ]
       }
     ]
   })
@@ -198,7 +183,6 @@ resource "aws_lambda_function" "dbt_runner" {
       GLUE_DATABASE_NAME    = aws_glue_catalog_database.dbt_data_platform.name
       ATHENA_RESULTS_BUCKET = aws_s3_bucket.athena_results.id
       DBT_STATE_BUCKET      = aws_s3_bucket.dbt_state.id
-      DBT_DOCS_BUCKET       = aws_s3_bucket.dbt_docs.id
       ENVIRONMENT           = var.environment
     }
   }

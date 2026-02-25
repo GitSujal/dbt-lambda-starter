@@ -33,9 +33,14 @@ output "dbt_docs_bucket" {
   value       = aws_s3_bucket.dbt_docs.id
 }
 
-output "dbt_docs_website_url" {
-  description = "URL of the dbt documentation static website"
-  value       = aws_s3_bucket_website_configuration.dbt_docs_website.website_endpoint
+output "dbt_docs_url" {
+  description = "URL of the dbt documentation site served via CloudFront"
+  value       = "https://${aws_cloudfront_distribution.dbt_docs.domain_name}"
+}
+
+output "dbt_docs_distribution_id" {
+  description = "CloudFront distribution ID for dbt docs (useful for cache invalidation)"
+  value       = aws_cloudfront_distribution.dbt_docs.id
 }
 
 # Glue Database Outputs
